@@ -595,94 +595,65 @@
             updateComparisonCharts(deviceData, sixHoursAgo);
         }
 
-        // ACTUALIZAR GRÁFICAS COMPARATIVAS (VERSIÓN SIMPLIFICADA)
+        // ACTUALIZAR GRÁFICAS COMPARATIVAS (VERSIÓN CORRECTA)
         function updateComparisonCharts(deviceData, timeFilter) {
-            console.log('Actualizando gráficas comparativas con dispositivos:', Object.keys(deviceData));
+            console.log('Actualizando gráficas comparativas...');
             
-            // Encontrar todos los timestamps únicos de todos los dispositivos
-            let allTimestamps = [];
-            Object.keys(deviceData).forEach(deviceId => {
-                const readings = deviceData[deviceId] || [];
-                const recentReadings = readings.filter(r => new Date(r.timestamp) >= timeFilter);
-                recentReadings.forEach(r => {
-                    allTimestamps.push(new Date(r.timestamp));
-                });
-            });
-            
-            // Ordenar timestamps y eliminar duplicados
-            allTimestamps = [...new Set(allTimestamps.map(t => t.getTime()))]
-                .map(t => new Date(t))
-                .sort((a, b) => a - b);
-            
-            console.log('Timestamps encontrados:', allTimestamps.length);
-            
-            if (allTimestamps.length === 0) {
-                console.log('No hay timestamps para mostrar');
-                return;
-            }
-            
-            // Crear labels para las gráficas
-            const labels = allTimestamps.map(t => t.toLocaleTimeString('es-ES', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            }));
+            // Limpiar datos anteriores
+            tempComparisonChart.data.labels = [];
+            humidityComparisonChart.data.labels = [];
             
             // Procesar cada dispositivo
             Object.keys(DEVICES).forEach((deviceId, index) => {
                 const readings = deviceData[deviceId] || [];
                 const recentReadings = readings
                     .filter(r => new Date(r.timestamp) >= timeFilter)
-                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                    .slice(-12); // Solo últimas 12 lecturas para evitar rayones
                 
-                console.log(`Dispositivo ${deviceId}: ${recentReadings.length} lecturas recientes`);
+                console.log(`${deviceId}: ${recentReadings.length} lecturas`);
                 
                 if (recentReadings.length > 0) {
-                    // Simplemente usar los datos tal como están
-                    const deviceLabels = recentReadings.map(r => 
-                        new Date(r.timestamp).toLocaleTimeString('es-ES', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                        })
-                    );
+                    // Preparar datos ordenados correctamente
                     const tempData = recentReadings.map(r => r.temperature);
                     const humidityData = recentReadings.map(r => r.humidity);
                     
-                    // Actualizar datasets con datos simples
-                    tempComparisonChart.data.datasets[index].data = recentReadings.map((r, i) => ({
-                        x: deviceLabels[i],
-                        y: r.temperature
-                    }));
-                    
-                    humidityComparisonChart.data.datasets[index].data = recentReadings.map((r, i) => ({
-                        x: deviceLabels[i],
-                        y: r.humidity
-                    }));
+                    // Actualizar datasets con datos simples (sin coordenadas x/y)
+                    tempComparisonChart.data.datasets[index].data = tempData;
+                    humidityComparisonChart.data.datasets[index].data = humidityData;
                     
                     // Mostrar el dataset
                     tempComparisonChart.data.datasets[index].hidden = false;
                     humidityComparisonChart.data.datasets[index].hidden = false;
                     
-                    console.log(`Dataset ${index} (${deviceId}): ${tempData.length} puntos de temperatura`);
+                    // Usar labels del primer dispositivo con datos
+                    if (tempComparisonChart.data.labels.length === 0) {
+                        tempComparisonChart.data.labels = recentReadings.map(r => 
+                            new Date(r.timestamp).toLocaleTimeString('es-ES', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            })
+                        );
+                        humidityComparisonChart.data.labels = tempComparisonChart.data.labels;
+                    }
+                    
+                    console.log(`Dataset ${deviceId}: Temperatura [${tempData[0]}...${tempData[tempData.length-1]}]`);
                 } else {
-                    // No hay datos, ocultar dataset
+                    // Sin datos - ocultar línea
                     tempComparisonChart.data.datasets[index].data = [];
                     humidityComparisonChart.data.datasets[index].data = [];
                     tempComparisonChart.data.datasets[index].hidden = true;
                     humidityComparisonChart.data.datasets[index].hidden = true;
                     
-                    console.log(`Dataset ${index} (${deviceId}): Sin datos`);
+                    console.log(`Dataset ${deviceId}: Sin datos`);
                 }
             });
-
-            // Usar los labels más completos
-            tempComparisonChart.data.labels = labels;
-            humidityComparisonChart.data.labels = labels;
             
-            console.log('Actualizando gráficas...');
-            tempComparisonChart.update('none');
-            humidityComparisonChart.update('none');
+            // Actualizar gráficas
+            tempComparisonChart.update();
+            humidityComparisonChart.update();
             
-            console.log('Gráficas comparativas actualizadas');
+            console.log('Gráficas comparativas actualizadas correctamente');
         }
 
         // INICIALIZACIÓN
