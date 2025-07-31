@@ -17,9 +17,31 @@ mongoose
   .catch((err) => console.error("❌ Error al conectar a MongoDB:", err));
 
 // --- MIDDLEWARES ---
+// CORS para permitir peticiones desde cualquier origen
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  
+  // Responder a peticiones OPTIONS (preflight)
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // Middleware para que Express pueda entender y procesar JSON.
 // ¡Esencial para que nuestra API reciba los datos del ESP32!
 app.use(express.json());
+
+// Middleware para manejo de errores 404
+app.use((req, res, next) => {
+  if (!res.headersSent) {
+    console.log(`404 - Ruta no encontrada: ${req.method} ${req.path}`);
+  }
+  next();
+});
 
 // --- RUTAS DE LA API ---
 app.get("/", (req, res) => {
@@ -33,7 +55,22 @@ app.use("/api/readings", readingRoutes);
 // Rutas para endpoints de sensores
 app.use("/api/sensors", sensorRoutes);
 
+// Middleware para manejo de rutas no encontradas
+app.use("*", (req, res) => {
+  console.log(`405 - Método no permitido: ${req.method} ${req.originalUrl}`);
+  res.status(405).json({
+    success: false,
+    message: `Método ${req.method} no permitido para ${req.originalUrl}`,
+    allowedMethods: req.method === "GET" ? ["GET"] : ["POST", "GET"]
+  });
+});
+
 // --- INICIAR SERVIDOR ---
 app.listen(port, () => {
   console.log(`🚀 Servidor escuchando en el puerto: ${port}`);
+  console.log(`📍 Rutas disponibles:`);
+  console.log(`   GET  / - Health check`);
+  console.log(`   POST /api/readings - Crear lectura`);
+  console.log(`   GET  /api/readings - Obtener todas las lecturas`);
+  console.log(`   GET  /api/sensors/* - Endpoints de sensores`);
 });
