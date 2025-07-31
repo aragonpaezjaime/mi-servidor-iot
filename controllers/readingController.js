@@ -22,6 +22,7 @@ exports.createReading = async (req, res) => {
 
     // 4. Respondemos al cliente (al ESP32) que todo salió bien
     res.status(201).json({
+      success: true,
       message: "Lectura guardada exitosamente",
       data: newReading,
     });
@@ -29,6 +30,7 @@ exports.createReading = async (req, res) => {
     // Si algo sale mal, enviamos una respuesta de error
     console.error("Error al guardar la lectura:", error);
     res.status(500).json({
+      success: false,
       message: "Error en el servidor",
       error: error.message,
     });
@@ -40,11 +42,12 @@ exports.getAllReadings = async (req, res) => {
   try {
     const readings = await SensorReading.find().sort({ timestamp: -1 });
     res.status(200).json({
+      success: true,
       count: readings.length,
       data: readings,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener las lecturas" });
+    res.status(500).json({ success: false, message: "Error al obtener las lecturas" });
   }
 };
 
@@ -65,11 +68,12 @@ exports.getRecentReadings = async (req, res) => {
     
     const recentReadings = await SensorReading.aggregate(pipeline);
     res.status(200).json({
+      success: true,
       count: recentReadings.length,
       data: recentReadings,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener lecturas recientes", error: error.message });
+    res.status(500).json({ success: false, message: "Error al obtener lecturas recientes", error: error.message });
   }
 };
 
@@ -84,12 +88,13 @@ exports.getHistoricalReadings = async (req, res) => {
     }).sort({ timestamp: -1 });
     
     res.status(200).json({
+      success: true,
       count: readings.length,
       hours: hours,
       data: readings,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener datos históricos", error: error.message });
+    res.status(500).json({ success: false, message: "Error al obtener datos históricos", error: error.message });
   }
 };
 
@@ -104,13 +109,14 @@ exports.getDeviceReadings = async (req, res) => {
       .limit(limit);
     
     res.status(200).json({
+      success: true,
       deviceId,
       count: readings.length,
       limit,
       data: readings,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener datos del dispositivo", error: error.message });
+    res.status(500).json({ success: false, message: "Error al obtener datos del dispositivo", error: error.message });
   }
 };
 
@@ -142,13 +148,14 @@ exports.getStats = async (req, res) => {
     const totalDevices = deviceStats.length;
     
     res.status(200).json({
+      success: true,
       summary: {
         totalDevices,
         totalReadings
       },
-      deviceStats
+      data: deviceStats
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener estadísticas", error: error.message });
+    res.status(500).json({ success: false, message: "Error al obtener estadísticas", error: error.message });
   }
 };
