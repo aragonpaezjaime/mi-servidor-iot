@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard IoT Multi-Sensor - 3 ESP32</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .online { color: #27ae60; }
+        .loading { color: #f39c12; }
+        .error { color: #e74c3c; }
+
+        /* ESTADÍSTICAS GENERALES */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .summary-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+
+        /* SECCIÓN DE DISPOSITIVOS */
+        .devices-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .device-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* COLORES TEMÁTICOS POR UBICACIÓN */
+        .exterior { border-left: 5px solid #ff6b6b; }
+        .recamara { border-left: 5px solid #4ecdc4; }
+        .sala { border-left: 5px solid #45b7d1; }
+        
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .device-title {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .device-status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .device-online { background: #d4edda; color: #155724; }
+        .device-offline { background: #f8d7da; color: #721c24; }
+        
+        .device-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .device-stat {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .device-stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .temp-color { color: #ff6b6b; }
+        .humidity-color { color: #4ecdc4; }
+        
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        /* GRÁFICAS COMPARATIVAS */
+        .comparison-section {
+            margin-top: 30px;
+        }
+        
+        .comparison-charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .comparison-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-chart {
+            height: 400px;
+            position: relative;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .devices-section {
+                grid-template-columns: 1fr;
+            }
+            .comparison-charts {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .summary-stats {
+                grid-template-columns: 1fr 1fr;
+            }
+            .device-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ENCABEZADO -->
+        <div class="header">
+            <h1>🏠 Dashboard IoT Multi-Sensor</h1>
+            <p>Monitoreo de 3 ESP32: Exterior, Recámara y Sala</p>
+        </div>
+
+        <div id="status" class="status loading">Cargando datos de todos los dispositivos...</div>
+
+        <!-- ESTADÍSTICAS GENERALES -->
+        <div class="summary-stats">
+            <div class="summary-card">
+                <h4>🌡️ Temperatura Promedio</h4>
+                <div id="avg-temp" class="summary-value temp-color">--°C</div>
+            </div>
+            <div class="summary-card">
+                <h4>💧 Humedad Promedio</h4>
+                <div id="avg-humidity" class="summary-value humidity-color">--%</div>
+            </div>
+            <div class="summary-card">
+                <h4>📊 Total Lecturas</h4>
+                <div id="total-readings" class="summary-value">--</div>
+            </div>
+            <div class="summary-card">
+                <h4>🔄 Última Actualización</h4>
+                <div id="last-update" class="summary-value">--</div>
+            </div>
+        </div>
+
+        <!-- DISPOSITIVOS INDIVIDUALES -->
+        <div class="devices-section">
+            <!-- ESP32 EXTERIOR -->
+            <div class="device-card exterior">
+                <div class="device-header">
+                    <div class="device-title">🌳 ESP32 Exterior (Cochera)</div>
+                    <div id="status-exterior" class="device-status device-offline">Sin datos</div>
+                </div>
+                <div class="device-stats">
+                    <div class="device-stat">
+                        <div class="device-stat-value temp-color" id="temp-exterior">--°C</div>
+                        <small>Temperatura</small>
+                    </div>
+                    <div class="device-stat">
+                        <div class="device-stat-value humidity-color" id="humidity-exterior">--%</div>
+                        <small>Humedad</small>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-exterior"></canvas>
+                </div>
+            </div>
+
+            <!-- ESP32 RECÁMARA -->
+            <div class="device-card recamara">
+                <div class="device-header">
+                    <div class="device-title">🛏️ ESP32 Recámara</div>
+                    <div id="status-recamara" class="device-status device-offline">Sin datos</div>
+                </div>
+                <div class="device-stats">
+                    <div class="device-stat">
+                        <div class="device-stat-value temp-color" id="temp-recamara">--°C</div>
+                        <small>Temperatura</small>
+                    </div>
+                    <div class="device-stat">
+                        <div class="device-stat-value humidity-color" id="humidity-recamara">--%</div>
+                        <small>Humedad</small>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-recamara"></canvas>
+                </div>
+            </div>
+
+            <!-- ESP32 SALA -->
+            <div class="device-card sala">
+                <div class="device-header">
+                    <div class="device-title">🛋️ ESP32 Sala</div>
+                    <div id="status-sala" class="device-status device-offline">Sin datos</div>
+                </div>
+                <div class="device-stats">
+                    <div class="device-stat">
+                        <div class="device-stat-value temp-color" id="temp-sala">--°C</div>
+                        <small>Temperatura</small>
+                    </div>
+                    <div class="device-stat">
+                        <div class="device-stat-value humidity-color" id="humidity-sala">--%</div>
+                        <small>Humedad</small>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-sala"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICAS COMPARATIVAS -->
+        <div class="comparison-section">
+            <h2 style="text-align: center; margin-bottom: 20px;">📊 Comparación entre Ubicaciones</h2>
+            <div class="comparison-charts">
+                <div class="comparison-card">
+                    <h3>🌡️ Temperatura - Comparación</h3>
+                    <div class="comparison-chart">
+                        <canvas id="temp-comparison"></canvas>
+                    </div>
+                </div>
+                <div class="comparison-card">
+                    <h3>💧 Humedad - Comparación</h3>
+                    <div class="comparison-chart">
+                        <canvas id="humidity-comparison"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN
+        const API_URL = 'https://iot-mx.netlify.app/api/readings';
+        
+        // DISPOSITIVOS CONFIGURADOS
+        const DEVICES = {
+            'esp32-exterior-01': {
+                name: 'Exterior (Cochera)',
+                color: '#ff6b6b',
+                icon: '🌳'
+            },
+            'esp32-recamara-01': {
+                name: 'Recámara',
+                color: '#4ecdc4',
+                icon: '🛏️'
+            },
+            'esp32-sala-01': {
+                name: 'Sala',
+                color: '#45b7d1',
+                icon: '🛋️'
+            }
+        };
+
+        // Variables globales para las gráficas
+        let deviceCharts = {};
+        let tempComparisonChart, humidityComparisonChart;
+
+        // CONFIGURACIÓN COMÚN DE GRÁFICAS
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Tiempo'
+                    }
+                },
+                y: {
+                    beginAtZero: false
+                }
+            }
+        };
+
+        // INICIALIZAR GRÁFICAS INDIVIDUALES
+        function initDeviceCharts() {
+            Object.keys(DEVICES).forEach(deviceId => {
+                const deviceKey = deviceId.replace('esp32-', '').replace('-01', '');
+                const canvas = document.getElementById(`chart-${deviceKey}`);
+                const ctx = canvas.getContext('2d');
+                
+                deviceCharts[deviceId] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Temperatura',
+                            data: [],
+                            borderColor: DEVICES[deviceId].color,
+                            backgroundColor: DEVICES[deviceId].color + '20',
+                            fill: true,
+                            tension: 0.1
+                        }, {
+                            label: 'Humedad',
+                            data: [],
+                            borderColor: '#4ecdc4',
+                            backgroundColor: '#4ecdc4' + '20',
+                            fill: false,
+                            tension: 0.1,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        ...chartOptions,
+                        scales: {
+                            ...chartOptions.scales,
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Temperatura (°C)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                min: 0,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Humedad (%)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // INICIALIZAR GRÁFICAS COMPARATIVAS
+        function initComparisonCharts() {
+            // Gráfica de temperatura comparativa
+            const tempCtx = document.getElementById('temp-comparison').getContext('2d');
+            tempComparisonChart = new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    datasets: Object.keys(DEVICES).map(deviceId => ({
+                        label: DEVICES[deviceId].name,
+                        data: [],
+                        borderColor: DEVICES[deviceId].color,
+                        backgroundColor: DEVICES[deviceId].color + '20',
+                        fill: false,
+                        tension: 0.1
+                    }))
+                },
+                options: {
+                    ...chartOptions,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Temperatura (°C)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Gráfica de humedad comparativa
+            const humidityCtx = document.getElementById('humidity-comparison').getContext('2d');
+            humidityComparisonChart = new Chart(humidityCtx, {
+                type: 'line',
+                data: {
+                    datasets: Object.keys(DEVICES).map(deviceId => ({
+                        label: DEVICES[deviceId].name,
+                        data: [],
+                        borderColor: DEVICES[deviceId].color,
+                        backgroundColor: DEVICES[deviceId].color + '20',
+                        fill: false,
+                        tension: 0.1
+                    }))
+                },
+                options: {
+                    ...chartOptions,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            min: 0,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Humedad (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // CARGAR DATOS
+        async function loadData() {
+            try {
+                document.getElementById('status').textContent = 'Actualizando datos...';
+                document.getElementById('status').className = 'status loading';
+
+                const response = await fetch(API_URL);
+                const data = await response.json();
+
+                if (data.success && data.data && data.data.length > 0) {
+                    updateDashboard(data.data);
+                    document.getElementById('status').textContent = 
+                        '🟢 Sistema Online - ' + new Date().toLocaleTimeString();
+                    document.getElementById('status').className = 'status online';
+                } else {
+                    throw new Error('No hay datos disponibles');
+                }
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                document.getElementById('status').textContent = '🔴 Error conectando con el servidor';
+                document.getElementById('status').className = 'status error';
+            }
+        }
+
+        // ACTUALIZAR DASHBOARD
+        function updateDashboard(readings) {
+            // Filtrar últimas 6 horas para mejor visualización
+            const now = new Date();
+            const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+            
+            // Agrupar datos por dispositivo
+            const deviceData = {};
+            let totalReadings = 0;
+            let tempSum = 0;
+            let humiditySum = 0;
+            let activeDevices = 0;
+            let latestTimestamp = new Date(0);
+
+            // Procesar cada lectura
+            readings.forEach(reading => {
+                if (!deviceData[reading.deviceId]) {
+                    deviceData[reading.deviceId] = [];
+                }
+                deviceData[reading.deviceId].push(reading);
+                
+                totalReadings++;
+                tempSum += reading.temperature;
+                humiditySum += reading.humidity;
+                
+                const readingTime = new Date(reading.timestamp);
+                if (readingTime > latestTimestamp) {
+                    latestTimestamp = readingTime;
+                }
+            });
+
+            // Actualizar estadísticas generales
+            activeDevices = Object.keys(deviceData).length;
+            if (totalReadings > 0) {
+                document.getElementById('avg-temp').textContent = (tempSum / totalReadings).toFixed(1) + '°C';
+                document.getElementById('avg-humidity').textContent = (humiditySum / totalReadings).toFixed(1) + '%';
+                document.getElementById('total-readings').textContent = totalReadings;
+                document.getElementById('last-update').textContent = latestTimestamp.toLocaleTimeString();
+            }
+
+            // Actualizar cada dispositivo
+            Object.keys(DEVICES).forEach(deviceId => {
+                const deviceKey = deviceId.replace('esp32-', '').replace('-01', '');
+                const deviceReadings = deviceData[deviceId] || [];
+                
+                if (deviceReadings.length > 0) {
+                    // Obtener datos recientes
+                    const recentReadings = deviceReadings
+                        .filter(r => new Date(r.timestamp) >= sixHoursAgo)
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    
+                    const latest = deviceReadings[0];
+                    
+                    // Actualizar estadísticas del dispositivo
+                    document.getElementById(`temp-${deviceKey}`).textContent = latest.temperature.toFixed(1) + '°C';
+                    document.getElementById(`humidity-${deviceKey}`).textContent = latest.humidity.toFixed(1) + '%';
+                    document.getElementById(`status-${deviceKey}`).textContent = 'Online';
+                    document.getElementById(`status-${deviceKey}`).className = 'device-status device-online';
+                    
+                    // Preparar datos para gráfica individual
+                    const labels = recentReadings.map(r => 
+                        new Date(r.timestamp).toLocaleTimeString('es-ES', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })
+                    );
+                    const tempData = recentReadings.map(r => r.temperature);
+                    const humidityData = recentReadings.map(r => r.humidity);
+                    
+                    // Actualizar gráfica individual
+                    const chart = deviceCharts[deviceId];
+                    chart.data.labels = labels;
+                    chart.data.datasets[0].data = tempData;
+                    chart.data.datasets[1].data = humidityData;
+                    chart.update('none');
+                    
+                } else {
+                    // Dispositivo sin datos
+                    document.getElementById(`temp-${deviceKey}`).textContent = '--°C';
+                    document.getElementById(`humidity-${deviceKey}`).textContent = '--%';
+                    document.getElementById(`status-${deviceKey}`).textContent = 'Sin datos';
+                    document.getElementById(`status-${deviceKey}`).className = 'device-status device-offline';
+                }
+            });
+
+            // Actualizar gráficas comparativas
+            updateComparisonCharts(deviceData, sixHoursAgo);
+        }
+
+        // ACTUALIZAR GRÁFICAS COMPARATIVAS
+        function updateComparisonCharts(deviceData, timeFilter) {
+            // Encontrar tiempo común para todas las gráficas
+            let commonLabels = [];
+            const deviceDatasets = {};
+            
+            // Procesar cada dispositivo
+            Object.keys(DEVICES).forEach((deviceId, index) => {
+                const readings = deviceData[deviceId] || [];
+                const recentReadings = readings
+                    .filter(r => new Date(r.timestamp) >= timeFilter)
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                
+                if (recentReadings.length > 0) {
+                    const labels = recentReadings.map(r => 
+                        new Date(r.timestamp).toLocaleTimeString('es-ES', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })
+                    );
+                    
+                    if (labels.length > commonLabels.length) {
+                        commonLabels = labels;
+                    }
+                    
+                    deviceDatasets[deviceId] = {
+                        temp: recentReadings.map(r => r.temperature),
+                        humidity: recentReadings.map(r => r.humidity)
+                    };
+                }
+            });
+
+            // Actualizar gráfica de temperatura comparativa
+            tempComparisonChart.data.labels = commonLabels;
+            Object.keys(DEVICES).forEach((deviceId, index) => {
+                tempComparisonChart.data.datasets[index].data = deviceDatasets[deviceId]?.temp || [];
+            });
+            tempComparisonChart.update('none');
+
+            // Actualizar gráfica de humedad comparativa
+            humidityComparisonChart.data.labels = commonLabels;
+            Object.keys(DEVICES).forEach((deviceId, index) => {
+                humidityComparisonChart.data.datasets[index].data = deviceDatasets[deviceId]?.humidity || [];
+            });
+            humidityComparisonChart.update('none');
+        }
+
+        // INICIALIZACIÓN
+        document.addEventListener('DOMContentLoaded', function() {
+            initDeviceCharts();
+            initComparisonCharts();
+            loadData();
+            
+            // Actualizar cada 30 segundos
+            setInterval(loadData, 30000);
+        });
+    </script>
+</body>
+</html>
