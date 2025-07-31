@@ -600,6 +600,8 @@
         // ACTUALIZAR GRÁFICAS COMPARATIVAS (SINCRONIZACIÓN MEJORADA)
         function updateComparisonCharts(deviceData, timeFilter) {
             console.log('Actualizando gráficas comparativas...');
+            console.log('Filtro de tiempo (24h atrás):', timeFilter.toLocaleString());
+            console.log('Tiempo actual:', new Date().toLocaleString());
             
             // Recopilar todos los timestamps de todos los dispositivos
             let allTimestamps = new Set();
@@ -609,8 +611,8 @@
                 const readings = deviceData[deviceId] || [];
                 const recentReadings = readings
                     .filter(r => new Date(r.timestamp) >= timeFilter)
-                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-                    .slice(-48); // Últimas 48 lecturas (24 horas, cada 30 min aprox)
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    // No limitar con slice - usar todos los datos de 24 horas
                 
                 deviceReadings[deviceId] = recentReadings;
                 
@@ -619,13 +621,15 @@
                     allTimestamps.add(r.timestamp);
                 });
                 
-                console.log(`${deviceId}: ${recentReadings.length} lecturas`);
+                const firstReading = recentReadings[0] ? new Date(recentReadings[0].timestamp).toLocaleString() : 'N/A';
+                const lastReading = recentReadings[recentReadings.length-1] ? new Date(recentReadings[recentReadings.length-1].timestamp).toLocaleString() : 'N/A';
+                console.log(`${deviceId}: ${recentReadings.length} lecturas desde ${firstReading} hasta ${lastReading}`);
             });
             
-            // Convertir a array ordenado
+            // Convertir a array ordenado - usar TODOS los timestamps de 24 horas
             const sortedTimestamps = Array.from(allTimestamps)
-                .sort((a, b) => new Date(a) - new Date(b))
-                .slice(-36); // Solo los últimos 36 timestamps únicos (24 horas)
+                .sort((a, b) => new Date(a) - new Date(b));
+                // No limitar - mostrar todos los datos disponibles de 24 horas
             
             console.log(`Timestamps únicos: ${sortedTimestamps.length}`);
             
