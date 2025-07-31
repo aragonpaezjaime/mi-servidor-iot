@@ -273,13 +273,13 @@
             <h2 style="text-align: center; margin-bottom: 20px;">📊 Comparación entre Ubicaciones</h2>
             <div class="comparison-charts">
                 <div class="comparison-card">
-                    <h3>🌡️ Temperatura - Comparación</h3>
+                    <h3>🌡️ Temperatura - Últimas 24 horas</h3>
                     <div class="comparison-chart">
                         <canvas id="temp-comparison"></canvas>
                     </div>
                 </div>
                 <div class="comparison-card">
-                    <h3>💧 Humedad - Comparación</h3>
+                    <h3>💧 Humedad - Últimas 24 horas</h3>
                     <div class="comparison-chart">
                         <canvas id="humidity-comparison"></canvas>
                     </div>
@@ -498,9 +498,11 @@
 
         // ACTUALIZAR DASHBOARD
         function updateDashboard(readings) {
-            // Filtrar últimas 6 horas para mejor visualización
+            // Filtrar últimas 6 horas para gráficas individuales
             const now = new Date();
             const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+            // Filtrar últimas 24 horas para gráficas comparativas
+            const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
             
             // Agrupar datos por dispositivo y ordenar por timestamp (más reciente primero)
             const deviceData = {};
@@ -591,8 +593,8 @@
                 }
             });
 
-            // Actualizar gráficas comparativas
-            updateComparisonCharts(deviceData, sixHoursAgo);
+            // Actualizar gráficas comparativas con 24 horas de datos
+            updateComparisonCharts(deviceData, twentyFourHoursAgo);
         }
 
         // ACTUALIZAR GRÁFICAS COMPARATIVAS (SINCRONIZACIÓN MEJORADA)
@@ -608,7 +610,7 @@
                 const recentReadings = readings
                     .filter(r => new Date(r.timestamp) >= timeFilter)
                     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-                    .slice(-20); // Últimas 20 lecturas
+                    .slice(-48); // Últimas 48 lecturas (24 horas, cada 30 min aprox)
                 
                 deviceReadings[deviceId] = recentReadings;
                 
@@ -623,7 +625,7 @@
             // Convertir a array ordenado
             const sortedTimestamps = Array.from(allTimestamps)
                 .sort((a, b) => new Date(a) - new Date(b))
-                .slice(-15); // Solo los últimos 15 timestamps únicos
+                .slice(-36); // Solo los últimos 36 timestamps únicos (24 horas)
             
             console.log(`Timestamps únicos: ${sortedTimestamps.length}`);
             
