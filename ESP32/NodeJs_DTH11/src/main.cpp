@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 
 // Librerías de Adafruit para el sensor
@@ -10,7 +11,7 @@
 // --- CONFIGURACIÓN DE TU PROYECTO ---
 const char* WIFI_SSID = "Michillo";
 const char* WIFI_PASSWORD = "1qaz2wsx";
-const char* SERVER_URL = "https://mi-servidor-iot-production.up.railway.app/api/readings"; 
+const char* SERVER_URL = "https://iot-mx.netlify.app/api/readings"; 
 #define DHT_PIN 15
 #define DHT_TYPE DHT11
 #define BUTTON_PIN 4
@@ -27,6 +28,7 @@ RTC_DATA_ATTR int bootCount = 0;
 
 // Inicialización de objetos (ahora usando el tipo de la librería de Adafruit)
 DHT dht(DHT_PIN, DHT_TYPE);
+WiFiClientSecure client;
 HTTPClient http;
 
 void print_wakeup_reason() {
@@ -97,7 +99,8 @@ void sendSensorData() {
   serializeJson(doc, jsonPayload);
   Serial.println("JSON a enviar: " + jsonPayload);
 
-  http.begin(SERVER_URL);
+  client.setInsecure(); // Deshabilitar verificación SSL
+  http.begin(client, SERVER_URL);
   http.addHeader("Content-Type", "application/json");
 
   int httpResponseCode = http.POST(jsonPayload);
