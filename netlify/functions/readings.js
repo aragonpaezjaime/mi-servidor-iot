@@ -3,15 +3,24 @@ const mongoose = require("mongoose");
 // Importar el modelo directamente
 const SensorReading = require("../../models/SensorReading");
 
-// Conectar a MongoDB (solo si no está conectado)
+// Variable para controlar la conexión
+let cachedConnection = null;
+
+// Conectar a MongoDB
 const connectDB = async () => {
-  if (mongoose.connections[0].readyState) {
-    return;
+  if (cachedConnection) {
+    return cachedConnection;
   }
   
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    const connection = await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+    
+    cachedConnection = connection;
     console.log("✅ Conectado a MongoDB");
+    return connection;
   } catch (error) {
     console.error("❌ Error conectando a MongoDB:", error);
     throw error;
@@ -19,11 +28,12 @@ const connectDB = async () => {
 };
 
 exports.handler = async (event, context) => {
-  // Configurar CORS
+  // Configurar headers CORS
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Accept",
+    "Content-Type": "application/json"
   };
 
   // Manejar preflight requests
@@ -31,7 +41,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: "",
+      body: ""
     };
   }
 
@@ -40,13 +50,26 @@ exports.handler = async (event, context) => {
 
     if (event.httpMethod === "POST") {
       // Crear nueva lectura
-      const { deviceId, location, temperature, humidity } = JSON.parse(event.body);
+      const data = JSON.parse(event.body || "{}");
+      const { deviceId, location, temperature, humidity } = data;
+
+      // Validar datos requeridos
+      if (!deviceId || !location || temperature === undefined || humidity === undefined) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            message: "Faltan campos requeridos: deviceId, location, temperature, humidity"
+          })
+        };
+      }
 
       const newReading = new SensorReading({
         deviceId,
         location,
-        temperature,
-        humidity,
+        temperature: Number(temperature),
+        humidity: Number(humidity)
       });
 
       const savedReading = await newReading.save();
@@ -57,14 +80,16 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           success: true,
           data: savedReading,
-          message: "Lectura guardada exitosamente",
-        }),
+          message: "Lectura guardada exitosamente"
+        })
       };
     }
 
     if (event.httpMethod === "GET") {
       // Obtener todas las lecturas
-      const readings = await SensorReading.find().sort({ timestamp: -1 });
+      const readings = await SensorReading.find()
+        .sort({ timestamp: -1 })
+        .limit(100); // Limitar a 100 registros más recientes
 
       return {
         statusCode: 200,
@@ -72,29 +97,32 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           success: true,
           data: readings,
-          count: readings.length,
-        }),
+          count: readings.length
+        })
       };
     }
 
+    // Método no permitido
     return {
       statusCode: 405,
       headers,
       body: JSON.stringify({
         success: false,
-        message: "Método no permitido",
-      }),
+        message: `Método ${event.httpMethod} no permitido`
+      })
     };
+
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error en función readings:", error);
+    
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
         success: false,
         message: "Error interno del servidor",
-        error: error.message,
-      }),
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno'
+      })
     };
   }
 };
