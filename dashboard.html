@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard IoT - Sensor DHT11</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -131,11 +132,9 @@
             },
             scales: {
                 x: {
-                    type: 'time',
-                    time: {
-                        displayFormats: {
-                            hour: 'HH:mm'
-                        }
+                    title: {
+                        display: true,
+                        text: 'Tiempo'
                     }
                 },
                 y: {
@@ -253,17 +252,20 @@
             document.getElementById('total-readings').textContent = readings.length;
 
             // Actualizar gráficas
-            const tempData = recentReadings.map(reading => ({
-                x: new Date(reading.timestamp),
-                y: reading.temperature
-            }));
+            const labels = recentReadings.map(reading => 
+                new Date(reading.timestamp).toLocaleTimeString('es-ES', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                })
+            );
+            
+            const tempData = recentReadings.map(reading => reading.temperature);
+            const humidityData = recentReadings.map(reading => reading.humidity);
 
-            const humidityData = recentReadings.map(reading => ({
-                x: new Date(reading.timestamp),
-                y: reading.humidity
-            }));
-
+            tempChart.data.labels = labels;
             tempChart.data.datasets[0].data = tempData;
+            
+            humidityChart.data.labels = labels;
             humidityChart.data.datasets[0].data = humidityData;
 
             tempChart.update('none');
