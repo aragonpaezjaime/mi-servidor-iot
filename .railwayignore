@@ -1,0 +1,6 @@
+iot-dashboard/
+ESP32/
+extensiones-backup.txt
+.env
+*.md
+.git/
