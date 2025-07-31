@@ -10,12 +10,12 @@
 // --- CONFIGURACIÓN DE TU PROYECTO ---
 const char* WIFI_SSID = "Michillo";
 const char* WIFI_PASSWORD = "1qaz2wsx";
-const char* SERVER_URL = "http://192.168.0.238:3000/api/readings"; 
+const char* SERVER_URL = "https://mi-servidor-iot-production.up.railway.app/api/readings"; 
 #define DHT_PIN 15
 #define DHT_TYPE DHT11
 #define BUTTON_PIN 4
-const char* DEVICE_ID = "esp32-sala-01";
-const char* DEVICE_LOCATION = "Sala de Estar";
+const char* DEVICE_ID = "esp32-exterior-01";
+const char* DEVICE_LOCATION = "Cochera";
 // --- FIN DE LA CONFIGURACIÓN ---
 
 // Configuración de Deep Sleep (5 minutos = 300 segundos)

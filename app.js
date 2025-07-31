@@ -5,6 +5,7 @@ require("dotenv").config(); // Carga las variables de entorno del archivo .env
 
 // --- IMPORTAR RUTAS ---
 const readingRoutes = require("./routes/readingRoutes");
+const sensorRoutes = require("./routes/sensorRoutes");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -28,6 +29,9 @@ app.get("/", (req, res) => {
 // Le decimos a Express que use el router de lecturas para cualquier
 // petición que empiece con '/api/readings'.
 app.use("/api/readings", readingRoutes);
+
+// Rutas para endpoints de sensores
+app.use("/api/sensors", sensorRoutes);
 
 // --- INICIAR SERVIDOR ---
 app.listen(port, () => {

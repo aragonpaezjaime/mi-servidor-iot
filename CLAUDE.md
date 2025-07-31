@@ -37,6 +37,9 @@ node app.js
 npm install
 ```
 
+### Deployment
+Project is deployed on Railway at: `https://mi-servidor-iot-production.up.railway.app`
+
 ### ESP32 Development
 ```bash
 # Build and upload (from ESP32/NodeJs_DTH11/ directory)
@@ -58,7 +61,7 @@ MONGODB_URI=mongodb://localhost:27017/iot-sensors
 
 ESP32 configuration is hardcoded in `main.cpp` (lines 11-18):
 - WiFi credentials
-- Server URL (update IP address as needed)
+- Server URL: `https://mi-servidor-iot-production.up.railway.app/api/readings` (Railway deployment)
 - Device ID and location
 
 ## Database Schema
